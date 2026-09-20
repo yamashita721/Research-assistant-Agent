@@ -1,0 +1,31 @@
+
+# Kestrel Labs Research Assistant
+
+A multi-agent Retrieval-Augmented Generation (RAG) workflow built with [LangGraph](https://python.langchain.com/v0.1/docs/langgraph/) and LangChain. This system features dynamic query routing, conversational memory, and an internal verification mechanism to ground answers in retrieved documentation.
+
+## Features
+
+* **Dynamic Semantic Routing:** A router node evaluates user input and conversational history to direct queries to either a standard conversational agent or a dedicated research pipeline.
+* **Evidence Verification (Critic Node):** Retrieved documents are evaluated before synthesis. A verifier classifies the evidence as `supported`, `partially_supported`, `conflicting_evidence`, or `insufficient_evidence`.
+* **Hallucination Guardrails:** If the verifier determines there is insufficient evidence in the internal documentation, the synthesizer gracefully refuses to answer rather than extrapolating.
+* **Citation Tracking:** The system parses exact chunk IDs from the generated response to provide traceable citations for the provided information.
+* **Multi-Turn Memory:** Implements LangGraph's `MemorySaver` to maintain chat history and resolve contextual pronouns in follow-up questions.
+
+## System Architecture
+
+The workflow is built as a state machine (`StateGraph`) with the following nodes:
+
+1. **Router (`router_node`):** Analyzes the latest input and chat history. Extracts a standalone query and determines the route (`direct_reply` or `research`).
+2. **Direct Reply (`direct_reply_node`):** Handles casual greetings or conversational queries that do not require documentation search.
+3. **Retriever (`retriever_node`):** Executes vector search against the ChromaDB collection using the standalone query.
+4. **Verifier (`verifier_node`):** Acts as a critic, evaluating whether the retrieved chunks actually contain the answer to the user's query.
+5. **Synthesizer (`synthesizer_node`):** Generates the final cited response based on the verified evidence, or triggers a fallback refusal if evidence is lacking.
+
+## Prerequisites
+
+* Python 3.9+
+* [Groq API Key](https://console.groq.com/keys) (Using `openai/gpt-oss-120b` or equivalent)
+* Optional: [LangSmith API Key](https://smith.langchain.com/) for tracing and debugging
+
+## TRACING
+https://smith.langchain.com/public/24d4484f-5ba7-4cf4-9e98-25852414f8a9/r/01a0beea-6dac-7693-b6fe-5d0788a5526b?start_time=2026-09-20T13%3A03%3A49.676512Z
