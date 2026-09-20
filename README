@@ -1,4 +1,3 @@
-
 # Kestrel Labs Research Assistant
 
 A multi-agent Retrieval-Augmented Generation (RAG) workflow built with [LangGraph](https://python.langchain.com/v0.1/docs/langgraph/) and LangChain. This system features dynamic query routing, conversational memory, and an internal verification mechanism to ground answers in retrieved documentation.
@@ -27,5 +26,9 @@ The workflow is built as a state machine (`StateGraph`) with the following nodes
 * [Groq API Key](https://console.groq.com/keys) (Using `openai/gpt-oss-120b` or equivalent)
 * Optional: [LangSmith API Key](https://smith.langchain.com/) for tracing and debugging
 
-## TRACING
-https://smith.langchain.com/public/24d4484f-5ba7-4cf4-9e98-25852414f8a9/r/01a0beea-6dac-7693-b6fe-5d0788a5526b?start_time=2026-09-20T13%3A03%3A49.676512Z
+## Installation
+
+1. Clone the repository:
+   ```bash
+   git clone [https://github.com/yourusername/kestrel-rag-agent.git](https://github.com/yourusername/kestrel-rag-agent.git)
+   cd kestrel-rag-agent
