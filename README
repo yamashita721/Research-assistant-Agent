@@ -1,158 +1,30 @@
 # Kestrel Labs Research Assistant
- 
+
 A multi-agent Retrieval-Augmented Generation (RAG) workflow built with [LangGraph](https://python.langchain.com/v0.1/docs/langgraph/) and LangChain. This system features dynamic query routing, conversational memory, and an internal verification mechanism to ground answers in retrieved documentation.
- 
+
 ## Features
- 
-* **Dynamic Semantic Routing** — A router node evaluates user input and conversational history to direct queries to either a standard conversational agent or a dedicated research pipeline.
-* **Evidence Verification (Critic Node)** — Retrieved documents are evaluated before synthesis. A verifier classifies the evidence as `supported`, `partially_supported`, `conflicting_evidence`, or `insufficient_evidence`.
-* **Hallucination Guardrails** — If the verifier determines there is insufficient evidence in the internal documentation, the synthesizer gracefully refuses to answer rather than extrapolating.
-* **Citation Tracking** — The system parses exact chunk IDs from the generated response to provide traceable citations for the provided information.
-* **Multi-Turn Memory** — Implements LangGraph's `MemorySaver` to maintain chat history and resolve contextual pronouns in follow-up questions.
+
+* **Dynamic Semantic Routing:** A router node evaluates user input and conversational history to direct queries to either a standard conversational agent or a dedicated research pipeline.
+* **Evidence Verification (Critic Node):** Retrieved documents are evaluated before synthesis. A verifier classifies the evidence as `supported`, `partially_supported`, `conflicting_evidence`, or `insufficient_evidence`.
+* **Hallucination Guardrails:** If the verifier determines there is insufficient evidence in the internal documentation, the synthesizer gracefully refuses to answer rather than extrapolating.
+* **Citation Tracking:** The system parses exact chunk IDs from the generated response to provide traceable citations for the provided information.
+* **Multi-Turn Memory:** Implements LangGraph's `MemorySaver` to maintain chat history and resolve contextual pronouns in follow-up questions.
+
 ## System Architecture
- 
+
 The workflow is built as a state machine (`StateGraph`) with the following nodes:
- 
-| Node | Function | Description |
-|---|---|---|
-| Router | `router_node` | Analyzes the latest input and chat history. Extracts a standalone query and determines the route (`direct_reply` or `research`). |
-| Direct Reply | `direct_reply_node` | Handles casual greetings or conversational queries that do not require documentation search. |
-| Retriever | `retriever_node` | Executes vector search against the ChromaDB collection using the standalone query. |
-| Verifier | `verifier_node` | Acts as a critic, evaluating whether the retrieved chunks actually contain the answer to the user's query. |
-| Synthesizer | `synthesizer_node` | Generates the final cited response based on the verified evidence, or triggers a fallback refusal if evidence is lacking. |
- 
-```
-                 ┌──────────────┐
-   user input →  │    Router    │
-                 └──────┬───────┘
-              direct_reply │ research
-           ┌──────────────┘    └───────────────┐
-  ┌─────────────────┐                  ┌──────────────┐
-  │  Direct Reply    │                  │  Retriever   │
-  └────────┬─────────┘                  └──────┬───────┘
-           │                                    │
-           │                            ┌──────────────┐
-           │                            │   Verifier   │
-           │                            └──────┬───────┘
-           │                                    │
-           │                            ┌──────────────┐
-           └───────────────────────────▶│ Synthesizer  │
-                                          └──────────────┘
-                                                 │
-                                          final response
-```
- 
+
+1. **Router (`router_node`):** Analyzes the latest input and chat history. Extracts a standalone query and determines the route (`direct_reply` or `research`).
+2. **Direct Reply (`direct_reply_node`):** Handles casual greetings or conversational queries that do not require documentation search.
+3. **Retriever (`retriever_node`):** Executes vector search against the ChromaDB collection using the standalone query.
+4. **Verifier (`verifier_node`):** Acts as a critic, evaluating whether the retrieved chunks actually contain the answer to the user's query.
+5. **Synthesizer (`synthesizer_node`):** Generates the final cited response based on the verified evidence, or triggers a fallback refusal if evidence is lacking.
+
 ## Prerequisites
- 
+
 * Python 3.9+
-* [Groq API Key](https://console.groq.com/keys) (using `openai/gpt-oss-120b` or equivalent)
+* [Groq API Key](https://console.groq.com/keys) (Using `openai/gpt-oss-120b` or equivalent)
 * Optional: [LangSmith API Key](https://smith.langchain.com/) for tracing and debugging
-## Installation
- 
-1. **Clone the repository**
-```bash
-   git clone https://github.com/yourusername/kestrel-rag-agent.git
-   cd kestrel-rag-agent
-```
- 
-2. **Create and activate a virtual environment**
-```bash
-   python3 -m venv venv
-   source venv/bin/activate      # On Windows: venv\Scripts\activate
-```
- 
-3. **Install dependencies**
-```bash
-   pip install -r requirements.txt
-```
- 
-4. **Configure environment variables**
-   Copy the example file and fill in your keys:
-```bash
-   cp .env.example .env
-```
- 
-```dotenv
-   # .env
-   GROQ_API_KEY=your_groq_api_key_here
-   GROQ_MODEL=openai/gpt-oss-120b
- 
-   # Optional — enables tracing in LangSmith
-   LANGCHAIN_TRACING_V2=true
-   LANGCHAIN_API_KEY=your_langsmith_api_key_here
-   LANGCHAIN_PROJECT=kestrel-rag-agent
-```
- 
-5. **Ingest your documentation into ChromaDB**
-   Place source documents in the `data/` directory, then run the ingestion script to chunk, embed, and index them:
-```bash
-   python ingest.py --source ./data --collection kestrel_docs
-```
- 
-## Usage
- 
-Run the assistant from the command line:
- 
-```bash
-python main.py
-```
- 
-Example session:
- 
-```
-You: What retry policy does the ingestion pipeline use?
-Assistant: [supported] The pipeline retries failed embedding calls up to 3 times
-with exponential backoff before raising an IngestionError. (source: chunk_devops_12)
- 
-You: What about timeouts?
-Assistant: [supported] Each retry uses a 30-second timeout... (source: chunk_devops_14)
-```
- 
-If the verifier classifies the retrieved evidence as `insufficient_evidence`, the assistant will decline to answer rather than guess:
- 
-```
-You: What's the team's vacation policy?
-Assistant: I don't have documentation covering that — I can't answer reliably.
-```
- 
-### Configuration options
- 
-| Flag / Env Var | Default | Description |
-|---|---|---|
-| `GROQ_MODEL` | `openai/gpt-oss-120b` | Model used for routing, verification, and synthesis |
-| `--collection` | `kestrel_docs` | ChromaDB collection name to query |
-| `--k` | `5` | Number of chunks retrieved per query |
-| `--thread-id` | auto-generated | Conversation thread ID for `MemorySaver` persistence |
- 
-## Project Structure
- 
-```
-kestrel-rag-agent/
-├── data/                # Source documents for ingestion
-├── ingest.py            # Chunking + embedding + ChromaDB indexing script
-├── main.py              # CLI entry point
-├── graph/
-│   ├── state.py         # Shared graph state definition
-│   ├── router.py         # router_node
-│   ├── direct_reply.py   # direct_reply_node
-│   ├── retriever.py       # retriever_node
-│   ├── verifier.py        # verifier_node
-│   └── synthesizer.py     # synthesizer_node
-├── requirements.txt
-├── .env.example
-└── README.md
-```
- 
-## Roadmap
- 
-* [ ] Web UI (Streamlit or Next.js front end)
-* [ ] Support for additional vector stores (Pinecone, Weaviate)
-* [ ] Automated evaluation suite for verifier accuracy
-## Contributing
- 
-Issues and pull requests are welcome. Please open an issue to discuss significant changes before submitting a PR.
- 
-## License
- 
-[MIT](LICENSE)
- 
+
+## TRACING
+https://smith.langchain.com/public/24d4484f-5ba7-4cf4-9e98-25852414f8a9/r/01a0beea-6dac-7693-b6fe-5d0788a5526b?start_time=2026-09-20T13%3A03%3A49.676512Z
